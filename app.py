@@ -1,10 +1,11 @@
 import datetime
+import os
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from star_forecast import cloudmsm, config, moonart, scoring, sky, theme, theme_v3, weather
+from star_forecast import cloudmsm, config, imageutil, moonart, scoring, sky, theme, theme_v3, weather
 
 _REFERENCE_LOCATION = next(iter(config.LOCATIONS.values()))  # 星の見え方の共通計算に使う代表地点
 _SPOT_COLORS = {"美星天文台": "#F5C242", "星空公園": "#7C9CFF", "竜王山公園": "#4ADE80"}
@@ -14,8 +15,20 @@ _SPOT_GRADIENT = {
     "星空公園": "linear-gradient(135deg,#FFE3C7,#FFCBA4)",
     "竜王山公園": "linear-gradient(135deg,#FFE0EC,#FFC2D6)",
 }
+_ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+_HERO_PHOTO = "hero.jpg"
+_SPOT_PHOTO = {
+    "美星天文台": "spot_bisei.jpg",
+    "星空公園": "spot_hoshizora.jpg",
+    "竜王山公園": "spot_ryuozan.jpg",
+}
 
 st.set_page_config(page_title="美星町 星空予報", page_icon="🌌", layout="wide")
+
+
+@st.cache_data
+def load_photo(filename: str) -> str:
+    return imageutil.image_to_data_uri(os.path.join(_ASSETS_DIR, filename))
 
 
 @st.cache_data(ttl=1800)
@@ -381,6 +394,7 @@ def render_v3(ctx):
             "🌌",
             "大切な人と、満天の星に会いに行こう",
             "岡山県・美星町。日本有数の星空が見える町で、特別な夜を過ごすための旅の道しるべ。",
+            photo_data_uri=load_photo(_HERO_PHOTO),
         ),
         unsafe_allow_html=True,
     )
@@ -427,12 +441,14 @@ def render_v3(ctx):
                     moon_line = f"🌙 月は{loc_score['moon_sector']}の空（輝面比{loc_score['moon_illumination_pct']}%）"
                 else:
                     moon_line = f"🌙 この時間帯は月が沈んでいます（輝面比{loc_score['moon_illumination_pct']}%）"
+                photo_name = _SPOT_PHOTO.get(loc_score["location"])
                 st.markdown(
                     theme_v3.spot_card(
                         _SPOT_EMOJI.get(loc_score["location"], "✨"),
                         _SPOT_GRADIENT.get(loc_score["location"], "linear-gradient(135deg,#eee,#ddd)"),
                         loc_score["location"], loc_score["location_note"],
                         loc_score["total_score"], loc_score["label"], moon_line, is_best,
+                        photo_data_uri=load_photo(photo_name) if photo_name else None,
                     ),
                     unsafe_allow_html=True,
                 )

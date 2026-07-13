@@ -167,12 +167,17 @@ def fade(html_str: str, delay_class: str = "") -> str:
     return f'<div class="{cls}">{html_str}</div>'
 
 
-def hero(emoji: str, title: str, subtitle: str) -> str:
+def hero(emoji: str, title: str, subtitle: str, photo_data_uri: str = None) -> str:
+    if photo_data_uri:
+        img_style = f"background-image:url('{photo_data_uri}'); background-size:cover; background-position:center;"
+        img_inner = ""
+    else:
+        img_style = ""
+        img_inner = f'<span class="v3-ph-tag">📷 写真差し替え予定</span><span class="v3-hero-emoji">{emoji}</span>'
     return f"""
 <div class="v3-hero v3-fade">
-  <div class="v3-hero-img">
-    <span class="v3-ph-tag">📷 写真差し替え予定</span>
-    <span class="v3-hero-emoji">{emoji}</span>
+  <div class="v3-hero-img" style="{img_style}">
+    {img_inner}
   </div>
   <div class="v3-hero-text">
     <p class="v3-hero-title">{html.escape(title)}</p>
@@ -223,11 +228,20 @@ def recommend_card(headline: str, sub_note: str, score: int) -> str:
 """
 
 
-def spot_card(emoji: str, gradient: str, name: str, note: str, score: int, label: str, moon_line: str, is_best: bool) -> str:
+def spot_card(
+    emoji: str, gradient: str, name: str, note: str, score: int, label: str, moon_line: str, is_best: bool,
+    photo_data_uri: str = None,
+) -> str:
     badge = '<span class="v3-badge">🏆 今夜のイチオシ</span>' if is_best else ""
+    if photo_data_uri:
+        img_style = f"background-image:url('{photo_data_uri}'); background-size:cover; background-position:center;"
+        img_inner = ""
+    else:
+        img_style = f"background:{gradient};"
+        img_inner = emoji
     return f"""
 <div class="v3-card v3-fade">
-  <div class="v3-card-img" style="background:{gradient};">{emoji}</div>
+  <div class="v3-card-img" style="{img_style}">{img_inner}</div>
   {badge}
   <p class="v3-card-title">{html.escape(name)}</p>
   <p class="v3-card-body">{html.escape(note)}</p>

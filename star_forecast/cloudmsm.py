@@ -66,7 +66,9 @@ def get_hourly_cloud_forecast(lat: float, lon: float) -> list:
     MSMのローリングデータの範囲（実況〜向こう34時間程度）に含まれる時刻のみ返る。
     """
     path = _ensure_cache()
-    f = netcdf_file(path, mmap=True, mode="r")
+    # mmap=True はコンテナ環境（Streamlit Community Cloud等）でセグメンテーション違反を
+    # 引き起こすことがあるため、通常の読み込み方式を使う。
+    f = netcdf_file(path, mmap=False, mode="r")
 
     lat_values = f.variables["lat"][:].copy()
     lon_values = f.variables["lon"][:].copy()
@@ -104,6 +106,7 @@ def get_hourly_cloud_forecast(lat: float, lon: float) -> list:
                 "upper_pct": round(max(0.0, min(100.0, upper[i])), 1),
             }
         )
+    f.close()
     return records
 
 

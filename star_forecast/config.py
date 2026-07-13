@@ -5,7 +5,7 @@ TOWN_NAME = "美星町（岡山県井原市）"
 TIMEZONE = "Asia/Tokyo"
 JST = ZoneInfo(TIMEZONE)
 
-# 気象庁 天気予報API（岡山県）。3スポットとも同じ気象庁予報区（岡山県南部）を利用する。
+# 気象庁 天気予報API（岡山県）。各スポットとも同じ気象庁予報区（岡山県南部）を利用する。
 JMA_AREA_CODE = "330000"
 JMA_FORECAST_URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{JMA_AREA_CODE}.json"
 
@@ -39,16 +39,6 @@ LOCATIONS = {
         "direction_visibility": {
             "N": _DEFAULT_VISIBILITY, "NE": 0.85, "E": 0.95, "SE": 0.85,
             "S": _DEFAULT_VISIBILITY, "SW": _DEFAULT_VISIBILITY, "W": _DEFAULT_VISIBILITY, "NW": _DEFAULT_VISIBILITY,
-        },
-    },
-    "竜王山公園": {
-        "lat": 34.6330846,
-        "lon": 133.5260956,
-        "elevation": 400,
-        "note": "南の空が見やすい。",
-        "direction_visibility": {
-            "N": _DEFAULT_VISIBILITY, "NE": _DEFAULT_VISIBILITY, "E": _DEFAULT_VISIBILITY, "SE": 0.85,
-            "S": 0.95, "SW": 0.85, "W": _DEFAULT_VISIBILITY, "NW": _DEFAULT_VISIBILITY,
         },
     },
 }

@@ -8,20 +8,19 @@ import streamlit as st
 from star_forecast import cloudmsm, config, imageutil, moonart, scoring, sky, theme, theme_v3, weather
 
 _REFERENCE_LOCATION = next(iter(config.LOCATIONS.values()))  # 星の見え方の共通計算に使う代表地点
-_SPOT_COLORS = {"美星天文台": "#F5C242", "星空公園": "#7C9CFF", "竜王山公園": "#4ADE80"}
-_SPOT_EMOJI = {"美星天文台": "🔭", "星空公園": "🌠", "竜王山公園": "🌸"}
+_SPOT_COLORS = {"美星天文台": "#F5C242", "星空公園": "#7C9CFF"}
+_SPOT_EMOJI = {"美星天文台": "🔭", "星空公園": "🌠"}
 _SPOT_GRADIENT = {
     "美星天文台": "linear-gradient(135deg,#E4E1FF,#C9C4FF)",
     "星空公園": "linear-gradient(135deg,#FFE3C7,#FFCBA4)",
-    "竜王山公園": "linear-gradient(135deg,#FFE0EC,#FFC2D6)",
 }
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 _HERO_PHOTO = "hero.jpg"
 _SPOT_PHOTO = {
     "美星天文台": "spot_bisei.jpg",
     "星空公園": "spot_hoshizora.jpg",
-    "竜王山公園": "spot_ryuozan.jpg",
 }
+_GALLERY_PHOTOS = ["gallery_umbrella.jpg", "gallery_ricefield.jpg", "gallery_autumn.jpg", "gallery_festival.jpg"]
 
 st.set_page_config(page_title="美星町 星空予報", page_icon="🌌", layout="wide")
 
@@ -72,10 +71,10 @@ def weather_and_events_lines(weather_entry):
 
 
 METHOD_NOTES = """
-- **天気予報あり（概ね7日先まで）**: 天気予報の空模様と降水確率から算出したスコアを55%、月明かりの影響を35%、天文イベントのボーナスを加味します。天気は3スポット共通（気象庁の岡山県南部予報）です。
+- **天気予報あり（概ね7日先まで）**: 天気予報の空模様と降水確率から算出したスコアを55%、月明かりの影響を35%、天文イベントのボーナスを加味します。天気は各スポット共通（気象庁の岡山県南部予報）です。
 - **天気予報なし（8日先〜1か月程度先）**: 天気はまだ予測できないため、月齢・月の出没時刻から算出した「月明かりの影響が少ないか」を主な指標にした参考値を表示します。
-- **観測スポット別の違い**: 各スポットは方角ごとの見やすさが異なります（美星天文台＝西がやや苦手、星空公園＝東が得意、竜王山公園＝南が得意）。天文薄明の時間帯に月がどの方角にあるかを計算し、そのスポットで見やすい方角に月がある場合は影響を大きく、見えにくい方角にある場合は影響を小さく補正しています。
-- **時間帯別に見える星**: 3スポットとも見えている星そのものはほぼ共通（同じ空）ですが、その方角がスポットごとに見やすいかどうかで「◎見やすい／○普通／△やや見えにくい」を表示します。高度15°以上に昇っている主要な恒星・惑星が対象です。
+- **観測スポット別の違い**: 各スポットは方角ごとの見やすさが異なります（美星天文台＝西がやや苦手、星空公園＝東が得意）。天文薄明の時間帯に月がどの方角にあるかを計算し、そのスポットで見やすい方角に月がある場合は影響を大きく、見えにくい方角にある場合は影響を小さく補正しています。
+- **時間帯別に見える星**: 各スポットとも見えている星そのものはほぼ共通（同じ空）ですが、その方角がスポットごとに見やすいかどうかで「◎見やすい／○普通／△やや見えにくい」を表示します。高度15°以上に昇っている主要な恒星・惑星が対象です。
 - **本日の詳細な雲の動き**: 気象庁MSM（メソモデル）の実況〜短期予報データから、当日のみ1時間ごとの雲量を取得して表示します（全雲量から算出した観望期待度）。日別予報とは別に、当日に限りより細かい時間解像度で確認できます。
 """
 
@@ -428,12 +427,12 @@ def render_v3(ctx):
         )
 
     st.markdown(
-        theme_v3.section_header("SPOTS", "3つの観測スポット", "それぞれ見える方角が違うから、その日の星空に合わせて選べます。"),
+        theme_v3.section_header("SPOTS", "観測スポット", "それぞれ見える方角が違うから、その日の星空に合わせて選べます。"),
         unsafe_allow_html=True,
     )
     latest_day = ctx["trip_all_scores"][0] if ctx["trip_all_scores"] else None
     if latest_day:
-        cols = st.columns(3)
+        cols = st.columns(len(latest_day))
         for col, loc_score in zip(cols, latest_day):
             with col:
                 is_best = loc_score is latest_day[0]
@@ -454,23 +453,17 @@ def render_v3(ctx):
                 )
 
     st.markdown(
-        theme_v3.section_header("SCENERY", "美星町のある風景", "満天の星、朝もやの棚田、静かな山あいの町。"),
+        theme_v3.section_header("SCENERY", "美星町のある風景", "満天の星だけじゃない、四季と暮らしの表情。"),
         unsafe_allow_html=True,
     )
-    gallery = [
-        ("🌌", "linear-gradient(135deg,#2C2A4A,#565092)"),
-        ("🌄", "linear-gradient(135deg,#FFDCA8,#FFB4A2)"),
-        ("🍃", "linear-gradient(135deg,#CFE8D5,#9FD8B0)"),
-        ("🏕️", "linear-gradient(135deg,#FFE3E9,#FFC2D1)"),
-    ]
     gcols = st.columns(4)
-    for gcol, (emoji, grad) in zip(gcols, gallery):
+    for gcol, photo_name in zip(gcols, _GALLERY_PHOTOS):
         with gcol:
             st.markdown(
-                f'<div class="v3-card-img v3-fade" style="background:{grad}; height:120px; border-radius:20px;">{emoji}</div>',
+                f'<div class="v3-card-img v3-fade" style="background-image:url(\'{load_photo(photo_name)}\'); '
+                f'background-size:cover; background-position:center; height:120px; border-radius:20px;"></div>',
                 unsafe_allow_html=True,
             )
-    st.caption("📷 実際の写真に差し替え予定のイメージプレースホルダーです")
 
     if ctx["today"] in ctx["trip_dates"]:
         st.markdown(theme_v3.section_header("TODAY", f"本日（{ctx['today'].strftime('%m/%d')}）の雲の動き"), unsafe_allow_html=True)

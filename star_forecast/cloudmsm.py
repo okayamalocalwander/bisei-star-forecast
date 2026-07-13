@@ -7,21 +7,27 @@
 
 「latest/MSM-S.nc」は、直近のMSM解析〜予報をつないだローリング更新ファイル（1日あたり数回更新、
 向こう34時間分の実況+短期予報を含む）で、当日の時間別の雲の動きを見るのに適している。
+
+ファイルは190MB超あり、scipy.io.netcdf_file(mmap=False)で開くと全変数・全格子点を
+メモリに展開してしまいメモリ超過でクラッシュする（Streamlit Community Cloudの
+無料枠で実際に発生）。そのため netcdf3.py の軽量パーサーで、必要な1格子点・
+必要な変数のみをファイルから直接読み出す。
 """
 import datetime
 import os
+import struct
 import tempfile
 import time
 
-import numpy as np
 import requests
-from scipy.io import netcdf_file
 
-from . import config
+from . import config, netcdf3
 
 MSM_LATEST_URL = "http://database.rish.kyoto-u.ac.jp/arch/jmadata/data/gpv/latest/MSM-S.nc"
 _CACHE_PATH = os.path.join(tempfile.gettempdir(), "bisei_star_forecast_msm_latest.nc")
 _CACHE_TTL_SECONDS = 3 * 60 * 60  # MSMはおよそ3時間おきに更新される
+
+_CLOUD_VARS = ("clda", "ncld_low", "ncld_mid", "ncld_upper")
 
 ATTRIBUTION = "気象庁MSMデータ（京都大学生存圏研究所ミラー経由・非公式）"
 
@@ -55,8 +61,8 @@ def _ensure_cache() -> str:
     return _CACHE_PATH
 
 
-def _nearest_index(values: np.ndarray, target: float) -> int:
-    return int(np.argmin(np.abs(values - target)))
+def _nearest_index(values: list, target: float) -> int:
+    return min(range(len(values)), key=lambda i: abs(values[i] - target))
 
 
 def get_hourly_cloud_forecast(lat: float, lon: float) -> list:
@@ -66,47 +72,41 @@ def get_hourly_cloud_forecast(lat: float, lon: float) -> list:
     MSMのローリングデータの範囲（実況〜向こう34時間程度）に含まれる時刻のみ返る。
     """
     path = _ensure_cache()
-    # mmap=True はコンテナ環境（Streamlit Community Cloud等）でセグメンテーション違反を
-    # 引き起こすことがあるため、通常の読み込み方式を使う。
-    f = netcdf_file(path, mmap=False, mode="r")
+    try:
+        header = netcdf3.parse_header(path)
 
-    lat_values = f.variables["lat"][:].copy()
-    lon_values = f.variables["lon"][:].copy()
-    ilat = _nearest_index(lat_values, lat)
-    ilon = _nearest_index(lon_values, lon)
+        lat_values = netcdf3.read_1d(path, header, "lat")
+        lon_values = netcdf3.read_1d(path, header, "lon")
+        ilat = _nearest_index(lat_values, lat)
+        ilon = _nearest_index(lon_values, lon)
 
-    time_var = f.variables["time"]
-    base_str = time_var.units.decode() if isinstance(time_var.units, bytes) else time_var.units
-    base_str = base_str.replace("hours since ", "")
-    base_utc = datetime.datetime.fromisoformat(base_str).replace(tzinfo=datetime.timezone.utc)
-    hours = time_var[:].copy()
+        time_values = netcdf3.read_1d(path, header, "time")
+        base_str = header["variables"]["time"]["attrs"]["units"].replace("hours since ", "")
+        base_utc = datetime.datetime.fromisoformat(base_str).replace(tzinfo=datetime.timezone.utc)
 
-    def _scaled(name):
-        var = f.variables[name]
-        raw = var[:, ilat, ilon].copy().astype(float)
-        scale = getattr(var, "scale_factor", 1.0)
-        offset = getattr(var, "add_offset", 0.0)
-        return raw * scale + offset
-
-    total = _scaled("clda")
-    low = _scaled("ncld_low")
-    mid = _scaled("ncld_mid")
-    upper = _scaled("ncld_upper")
+        scaled_by_var = {}
+        for var_name in _CLOUD_VARS:
+            raw = netcdf3.read_point_series(path, header, var_name, ilat, ilon)
+            attrs = header["variables"][var_name]["attrs"]
+            scale = attrs.get("scale_factor", 1.0)
+            offset = attrs.get("add_offset", 0.0)
+            scaled_by_var[var_name] = [v * scale + offset for v in raw]
+    except (OSError, ValueError, KeyError, struct.error) as exc:
+        raise CloudDataUnavailable("MSMデータの解析に失敗しました") from exc
 
     records = []
-    for i, h in enumerate(hours):
+    for i, h in enumerate(time_values):
         dt_utc = base_utc + datetime.timedelta(hours=float(h))
         dt_jst = dt_utc.astimezone(config.JST)
         records.append(
             {
                 "time": dt_jst,
-                "total_cloud_pct": round(max(0.0, min(100.0, total[i])), 1),
-                "low_pct": round(max(0.0, min(100.0, low[i])), 1),
-                "mid_pct": round(max(0.0, min(100.0, mid[i])), 1),
-                "upper_pct": round(max(0.0, min(100.0, upper[i])), 1),
+                "total_cloud_pct": round(max(0.0, min(100.0, scaled_by_var["clda"][i])), 1),
+                "low_pct": round(max(0.0, min(100.0, scaled_by_var["ncld_low"][i])), 1),
+                "mid_pct": round(max(0.0, min(100.0, scaled_by_var["ncld_mid"][i])), 1),
+                "upper_pct": round(max(0.0, min(100.0, scaled_by_var["ncld_upper"][i])), 1),
             }
         )
-    f.close()
     return records
 
 
